@@ -10,7 +10,7 @@ import (
 )
 
 type MemoryRepo struct {
-	seen          *collections.Set[domain.Product]
+	seen          *collections.Set[*domain.Product]
 	products      map[string]*domain.Product
 	m             sync.RWMutex
 	keys          []string
@@ -21,7 +21,7 @@ func (a *MemoryRepo) Seen() *collections.Set[*domain.Product] {
 	return a.seen
 }
 
-func (a *MemoryRepo) Add(p *domain.Product) {
+func (a *MemoryRepo) Add(p *domain.Product) error {
 	a.m.Lock()
 	defer a.m.Unlock()
 	a.seen.Add(p)
@@ -30,6 +30,7 @@ func (a *MemoryRepo) Add(p *domain.Product) {
 	a.keys = append(a.keys, p.Sku)
 	index := len(a.keys) - 1
 	a.sliceKeyIndex[p.Sku] = index
+	return nil
 }
 
 func (a *MemoryRepo) Get(sku string) (*domain.Product, error) {
