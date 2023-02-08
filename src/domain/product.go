@@ -9,12 +9,12 @@ import (
 
 type Product struct {
 	Sku           string
-	Batches       []Batch
+	Batches       []*Batch
 	VersionNumber int
-	Events        Events
+	Events        []interface{}
 }
 
-func (p *Product) Allocate(line OrderLine) string {
+func (p *Product) Allocate(line *OrderLine) {
 
 	sort.Slice(p.Batches, func(i, j int) bool {
 		return p.Batches[i].Eta.Nanosecond() > p.Batches[j].Eta.Nanosecond()
@@ -23,21 +23,28 @@ func (p *Product) Allocate(line OrderLine) string {
 	for _, b := range p.Batches {
 		b.Allocate(line)
 		p.VersionNumber += 1
-		p.Events.append(
-			Allocated{
-				OrderId:  line.OrderId,
-				Sku:      line.Sku,
-				Qty:      line.Qty,
-				BatchRef: b.Ref,
-			},
-		)
 
-		return b.Ref
+		p.Events = append(p.Events, &Allocated{
+			OrderId:  line.OrderId,
+			Sku:      line.Sku,
+			Qty:      line.Qty,
+			BatchRef: b.Ref,
+		})
+
 	}
 
-	p.Events.append(OutOfStock{line.Sku})
-	return ""
+	p.Events = append(p.Events, &OutOfStock{line.Sku})
 
+}
+
+func (p *Product) ChangeBatchQuantity(ref string, qty int) {
+	for _, b := range p.Batches {
+		b.purchasedQuantity = qty
+		for b.AvailableQuantity() < 0 {
+			line := b.DeallocateOne()
+			p.Events = append(p.Events, &Deallocate{line.OrderId, line.Sku, line.Qty})
+		}
+	}
 }
 
 type OrderLine struct {
@@ -52,16 +59,22 @@ type Batch struct {
 	Qty               string
 	Eta               time.Time
 	purchasedQuantity int
-	allocations       collections.Set[OrderLine]
+	allocations       collections.Set[*OrderLine]
 }
 
-func (b *Batch) Allocate(line OrderLine) {}
+func (b *Batch) Allocate(line *OrderLine) {
+	if b.CanAllocate(line) {
+		b.allocations.Add(line)
+	}
+}
 
-func (b *Batch) DeallocateOne() {}
+func (b *Batch) DeallocateOne() *OrderLine {
+	return b.allocations.Pop()
+}
 
 func (b *Batch) AllocateQuantity() int {
 	var slice []int
-	for o := range b.allocations {
+	for o := range b.allocations.Iter() {
 		slice = append(slice, o.Qty)
 	}
 
@@ -72,6 +85,6 @@ func (b *Batch) AvailableQuantity() int {
 	return b.purchasedQuantity - b.AllocateQuantity()
 }
 
-func (b *Batch) CanAllocate(line OrderLine) bool {
+func (b *Batch) CanAllocate(line *OrderLine) bool {
 	return b.Sku == line.Sku && b.AllocateQuantity() >= line.Qty
 }

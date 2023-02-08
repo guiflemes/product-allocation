@@ -1,0 +1,7 @@
+tmp/
+.dbdata
+.vscode
+
+# Configs
+config/conf.*
+.env

@@ -18,3 +18,9 @@ type Allocated struct {
 type OutOfStock struct {
 	Sku string
 }
+
+type Deallocate struct {
+	OrderId string
+	Sku     string
+	qty     int
+}
