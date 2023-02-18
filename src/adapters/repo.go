@@ -1,8 +1,8 @@
 package adapters
 
 import (
+	"context"
 	"errors"
-	"fmt"
 	"math/rand"
 	"product-allocation/src/domain"
 	"product-allocation/src/utils/collections"
@@ -12,16 +12,25 @@ import (
 type MemoryRepo struct {
 	seen          *collections.Set[*domain.Product]
 	products      map[string]*domain.Product
-	m             sync.RWMutex
 	keys          []string
 	sliceKeyIndex map[string]int
+	m             sync.RWMutex
+}
+
+func NewMemoryRepo() *MemoryRepo {
+	return &MemoryRepo{
+		seen:          collections.NewSet[*domain.Product](),
+		products:      make(map[string]*domain.Product),
+		keys:          make([]string, 0),
+		sliceKeyIndex: make(map[string]int),
+	}
 }
 
 func (a *MemoryRepo) Seen() *collections.Set[*domain.Product] {
 	return a.seen
 }
 
-func (a *MemoryRepo) Add(p *domain.Product) error {
+func (a *MemoryRepo) Add(cxt context.Context, p *domain.Product) error {
 	a.m.Lock()
 	defer a.m.Unlock()
 	a.seen.Add(p)
@@ -33,22 +42,17 @@ func (a *MemoryRepo) Add(p *domain.Product) error {
 	return nil
 }
 
-func (a *MemoryRepo) Get(sku string) (*domain.Product, error) {
+func (a *MemoryRepo) Get(cxt context.Context, sku string) (*domain.Product, error) {
 	a.m.RLock()
-	defer a.m.Unlock()
+	defer a.m.RUnlock()
 
-	p, ok := a.products[sku]
-
-	if !ok {
-		return nil, fmt.Errorf("Product with the given sku %v not found", sku)
-	}
-
+	p := a.products[sku]
 	a.seen.Add(p)
 	return p, nil
 
 }
 
-func (a *MemoryRepo) GetByBatchRef(batchRef string) (*domain.Product, error) {
+func (a *MemoryRepo) GetByBatchRef(cxt context.Context, batchRef string) (*domain.Product, error) {
 	// TODO -> Refactor it to get by batchRef, it's random
 
 	if len(a.products) == 0 {

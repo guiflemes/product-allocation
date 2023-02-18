@@ -11,7 +11,7 @@ type Allocate struct {
 type CreateBatch struct {
 	Ref string
 	Sku string
-	Qty string
+	Qty int
 	Eta time.Time
 }
 

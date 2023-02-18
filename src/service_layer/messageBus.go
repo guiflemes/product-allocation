@@ -8,24 +8,39 @@ import (
 )
 
 type (
-	Event          interface{}
-	Command        interface{}
 	CommandHandler interface {
-		Handle(ctx context.Context, cmd Command) error
+		Handle(ctx context.Context, cmd interface{}) error
 	}
-	EventHandler interface{ Handle(event Event) error }
+	EventHandler interface{ Handle(event interface{}) error }
 )
 
-type messageBus struct {
+type MessageBus struct {
+	errChan         chan error
+	eventQueue      <-chan interface{}
 	commandHandlers map[string]CommandHandler
 	eventHandlers   map[string][]EventHandler
-	errChan         chan error
-	EventQueue      <-chan Event
-	uow             UnitOfWork
+	uow             *UnitOfWork
 	m               sync.RWMutex
 }
 
-func (b *messageBus) HandlerCommand(ctx context.Context, cmd Command) error {
+func NewMessageBus(uow *UnitOfWork) *MessageBus {
+	errorChan := make(chan error)
+	eventChan := make(chan interface{})
+	commandHandlers := make(map[string]CommandHandler)
+	eventHandlers := make(map[string][]EventHandler)
+
+	uow.EventQueue = eventChan
+
+	return &MessageBus{
+		errChan:         errorChan,
+		eventQueue:      eventChan,
+		commandHandlers: commandHandlers,
+		eventHandlers:   eventHandlers,
+		uow:             uow,
+	}
+}
+
+func (b *MessageBus) HandlerCommand(ctx context.Context, cmd interface{}) error {
 	go b.handlerCommand(ctx, cmd)
 
 	for {
@@ -38,15 +53,15 @@ func (b *messageBus) HandlerCommand(ctx context.Context, cmd Command) error {
 
 			return nil
 
-		case event := <-b.EventQueue:
+		case event := <-b.eventQueue:
 			b.HandlerEvent(event)
 		}
 
 	}
 }
 
-func (b *messageBus) HandlerEvent(event Event) {
-	b.m.RLocker()
+func (b *MessageBus) HandlerEvent(event interface{}) {
+	b.m.RLock()
 
 	var wg sync.WaitGroup
 	eventType := b.getType(event)
@@ -59,7 +74,7 @@ func (b *messageBus) HandlerEvent(event Event) {
 	for _, handler := range handlers {
 		wg.Add(1)
 
-		go func(e Event, h EventHandler) {
+		go func(e interface{}, h EventHandler) {
 			defer wg.Done()
 			defer b.m.RUnlock()
 			h.Handle(e)
@@ -70,8 +85,8 @@ func (b *messageBus) HandlerEvent(event Event) {
 
 }
 
-func (b *messageBus) handlerCommand(ctx context.Context, cmd interface{}) {
-	b.m.RLocker()
+func (b *MessageBus) handlerCommand(ctx context.Context, cmd interface{}) {
+	b.m.RLock()
 	defer b.m.RUnlock()
 
 	cmdType := b.getType(cmd)
@@ -87,13 +102,13 @@ func (b *messageBus) handlerCommand(ctx context.Context, cmd interface{}) {
 
 }
 
-func (b *messageBus) RegisterCommandHandler(commandName string, handler CommandHandler) {
+func (b *MessageBus) RegisterCommandHandler(commandName string, handler CommandHandler) {
 	b.m.Lock()
 	defer b.m.Unlock()
 	b.commandHandlers[commandName] = handler
 }
 
-func (b *messageBus) RegisterEventHandler(eventName string, handler EventHandler) {
+func (b *MessageBus) RegisterEventHandler(eventName string, handler EventHandler) {
 	b.m.Lock()
 	defer b.m.Unlock()
 
@@ -108,7 +123,7 @@ func (b *messageBus) RegisterEventHandler(eventName string, handler EventHandler
 
 }
 
-func (b *messageBus) getType(s interface{}) string {
+func (b *MessageBus) getType(s interface{}) string {
 	t := reflect.TypeOf(s)
 	if t.Kind() == reflect.Ptr {
 		return t.Elem().Name()

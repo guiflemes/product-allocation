@@ -56,7 +56,7 @@ type OrderLine struct {
 type Batch struct {
 	Ref               string
 	Sku               string
-	Qty               string
+	Qty               int
 	Eta               time.Time
 	purchasedQuantity int
 	allocations       collections.Set[*OrderLine]

@@ -4,23 +4,11 @@ import (
 	"context"
 	"fmt"
 	"product-allocation/src/domain"
-	"time"
+	"product-allocation/src/service_layer"
 )
 
-type CreateBatch struct {
-	ref string
-	sku string
-	qty string
-	eta time.Time
-}
-
-type Repo interface {
-	Get(ctx context.Context, sku string) *domain.Product
-	Add(ctx context.Context, p *domain.Product) error
-}
-
 type uow interface {
-	Products() Repo
+	Products() service_layer.Repo
 	Rollback()
 	Commit()
 }
@@ -29,17 +17,28 @@ type AddBatchHandler struct {
 	uow uow
 }
 
-func (h *AddBatchHandler) Handler(ctx context.Context, cmd CreateBatch) error {
-	product := h.uow.Products().Get(ctx, cmd.sku)
+func NewAddBatchHandler(uow uow) *AddBatchHandler {
+	return &AddBatchHandler{uow: uow}
+}
+
+func (h *AddBatchHandler) Handle(ctx context.Context, c interface{}) error {
+	cmd := c.(*domain.CreateBatch)
+
+	product, err := h.uow.Products().Get(ctx, cmd.Sku)
+	fmt.Println("here")
+
+	if err != nil {
+		return err
+	}
 
 	if product == nil {
 		product = &domain.Product{
-			Sku:     cmd.sku,
+			Sku:     cmd.Sku,
 			Batches: make([]*domain.Batch, 1),
 		}
 
 	}
-	product.Batches = append(product.Batches, &domain.Batch{Ref: cmd.ref, Sku: cmd.sku, Qty: cmd.qty, Eta: cmd.eta})
+	product.Batches = append(product.Batches, &domain.Batch{Ref: cmd.Ref, Sku: cmd.Sku, Qty: cmd.Qty, Eta: cmd.Eta})
 
 	if err := h.uow.Products().Add(ctx, product); err != nil {
 		h.uow.Rollback()
@@ -50,19 +49,23 @@ func (h *AddBatchHandler) Handler(ctx context.Context, cmd CreateBatch) error {
 	return nil
 }
 
-type Allocate struct {
-	OrderId string
-	Sku     string
-	Qty     int
-}
-
 type AllocateHandler struct {
 	uow uow
 }
 
-func (h *AllocateHandler) Handler(ctx context.Context, cmd Allocate) error {
+func NewAllocateHandler(uow uow) *AllocateHandler {
+	return &AllocateHandler{uow: uow}
+}
+
+func (h *AllocateHandler) Handle(ctx context.Context, c interface{}) error {
+	cmd := c.(*domain.Allocate)
 	line := &domain.OrderLine{OrderId: cmd.OrderId, Sku: cmd.Sku, Qty: cmd.Qty}
-	product := h.uow.Products().Get(ctx, cmd.Sku)
+
+	product, err := h.uow.Products().Get(ctx, cmd.Sku)
+
+	if err != nil {
+		return err
+	}
 
 	if product == nil {
 		return fmt.Errorf("Invalid sku %s", cmd.Sku)
