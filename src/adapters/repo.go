@@ -33,9 +33,9 @@ func (a *MemoryRepo) Seen() *collections.Set[*domain.Product] {
 func (a *MemoryRepo) Add(cxt context.Context, p *domain.Product) error {
 	a.m.Lock()
 	defer a.m.Unlock()
+
 	a.seen.Add(p)
 	a.products[p.Sku] = p
-
 	a.keys = append(a.keys, p.Sku)
 	index := len(a.keys) - 1
 	a.sliceKeyIndex[p.Sku] = index
@@ -46,8 +46,11 @@ func (a *MemoryRepo) Get(cxt context.Context, sku string) (*domain.Product, erro
 	a.m.RLock()
 	defer a.m.RUnlock()
 
-	p := a.products[sku]
-	a.seen.Add(p)
+	p, ok := a.products[sku]
+	if ok {
+		a.seen.Add(p)
+	}
+
 	return p, nil
 
 }

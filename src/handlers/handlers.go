@@ -25,19 +25,15 @@ func (h *AddBatchHandler) Handle(ctx context.Context, c interface{}) error {
 	cmd := c.(*domain.CreateBatch)
 
 	product, err := h.uow.Products().Get(ctx, cmd.Sku)
-	fmt.Println("here")
 
 	if err != nil {
 		return err
 	}
 
 	if product == nil {
-		product = &domain.Product{
-			Sku:     cmd.Sku,
-			Batches: make([]*domain.Batch, 1),
-		}
-
+		product = domain.NewProduct(cmd.Sku, 1)
 	}
+
 	product.Batches = append(product.Batches, &domain.Batch{Ref: cmd.Ref, Sku: cmd.Sku, Qty: cmd.Qty, Eta: cmd.Eta})
 
 	if err := h.uow.Products().Add(ctx, product); err != nil {

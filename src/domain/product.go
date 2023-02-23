@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"product-allocation/src/utils/collections"
 	"product-allocation/src/utils/math"
 	"sort"
@@ -12,6 +13,15 @@ type Product struct {
 	Batches       []*Batch
 	VersionNumber int
 	Events        []interface{}
+}
+
+func NewProduct(sku string, version int) *Product {
+	return &Product{
+		Sku:           sku,
+		Batches:       make([]*Batch, 0),
+		VersionNumber: version,
+		Events:        make([]interface{}, 0),
+	}
 }
 
 func (p *Product) Allocate(line *OrderLine) {
@@ -47,6 +57,10 @@ func (p *Product) ChangeBatchQuantity(ref string, qty int) {
 	}
 }
 
+func (p *Product) String() string {
+	return fmt.Sprintf("Products(Sku=%s, Batches=%v)", p.Sku, p.Batches)
+}
+
 type OrderLine struct {
 	OrderId string
 	Sku     string
@@ -63,6 +77,7 @@ type Batch struct {
 }
 
 func (b *Batch) Allocate(line *OrderLine) {
+
 	if b.CanAllocate(line) {
 		b.allocations.Add(line)
 	}
@@ -87,4 +102,8 @@ func (b *Batch) AvailableQuantity() int {
 
 func (b *Batch) CanAllocate(line *OrderLine) bool {
 	return b.Sku == line.Sku && b.AllocateQuantity() >= line.Qty
+}
+
+func (b *Batch) String() string {
+	return fmt.Sprintf("Batch(Ref=%s, Sku=%s, Qty=%d)", b.Ref, b.Sku, b.Qty)
 }

@@ -2,6 +2,7 @@ package service_layer
 
 import (
 	"context"
+	"fmt"
 	"product-allocation/src/adapters"
 	"product-allocation/src/domain"
 	"product-allocation/src/utils/collections"
@@ -26,8 +27,14 @@ func (u *UnitOfWork) Products() Repo {
 func (u *UnitOfWork) CollectNewEvents() {
 	products := u.products.Seen()
 
-	for e := range products.Iter() {
-		u.EventQueue <- e
+	for p := range products.Iter() {
+		// TODO fix it to send events to EventQueue, nothing is sending to chanel, why?
+		for _, e := range p.Events {
+			fmt.Printf("sending %v to EventQueue\n", e)
+			u.EventQueue <- e
+
+		}
+
 	}
 }
 

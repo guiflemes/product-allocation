@@ -53,8 +53,14 @@ func (s *Set[T]) Pop() T {
 
 }
 
+func (s *Set[T]) Len() int {
+	s.m.RLock()
+	defer s.m.RUnlock()
+	return len(s.items)
+}
+
 func NewSet[T comparable]() *Set[T] {
 	return &Set[T]{
-		items: map[T]bool{},
+		items: make(map[T]bool),
 	}
 }
