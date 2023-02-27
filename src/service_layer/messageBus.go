@@ -72,7 +72,7 @@ func (b *MessageBus) handlerCommand(ctx context.Context, cmd interface{}) {
 
 	if ok {
 		result := handler.Handle(ctx, cmd)
-		b.uow.CollectNewEvents()
+		b.uow.CollectNewEvents() // TODO returns a generator and eliminate uow eventQueue dependence
 		b.errChan <- result
 		return
 	}
