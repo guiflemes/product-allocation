@@ -1,11 +1,32 @@
 package domain
 
-type Events []any
+import (
+	"sync"
+)
 
-func (ev *Events) append(v ...any) {
-	new := *ev
-	new = append(new, v)
-	*ev = new
+type Events struct {
+	items []interface{}
+	mu    sync.RWMutex
+}
+
+func (m *Events) Append(x interface{}) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.items = append(m.items, x)
+}
+
+func (m *Events) Read() []interface{} {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	return m.items
+}
+
+func (m *Events) Len() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return len(m.items)
 }
 
 type Allocated struct {

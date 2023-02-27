@@ -14,10 +14,19 @@ import (
 	"time"
 )
 
-type FakeEvent struct{}
+type FakeOutOfStockEvent struct{}
 
-func (f *FakeEvent) Handle(e interface{}) error {
-	fmt.Println("receive event", e)
+func (f *FakeOutOfStockEvent) Handle(e interface{}) error {
+	event := e.(*domain.OutOfStock)
+	fmt.Println("OutOfStock EventHandler executed", event.Sku)
+	return nil
+}
+
+type FakeAllocatedEvent struct{}
+
+func (f *FakeAllocatedEvent) Handle(e interface{}) error {
+	event := e.(*domain.Allocated)
+	fmt.Println("Allocated EventHandler executed", event.Sku)
 	return nil
 }
 
@@ -26,7 +35,8 @@ func bootstrap(uow *service_layer.UnitOfWork) *service_layer.MessageBus {
 
 	bus.RegisterCommandHandler("Allocate", handlers.NewAllocateHandler(uow))
 	bus.RegisterCommandHandler("CreateBatch", handlers.NewAddBatchHandler(uow))
-	bus.RegisterEventHandler("OutOfStock", &FakeEvent{})
+	bus.RegisterEventHandler("OutOfStock", &FakeOutOfStockEvent{})
+	bus.RegisterEventHandler("Allocated", &FakeAllocatedEvent{})
 	return bus
 }
 

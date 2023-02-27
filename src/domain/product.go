@@ -12,7 +12,7 @@ type Product struct {
 	Sku           string
 	Batches       []*Batch
 	VersionNumber int
-	Events        []interface{}
+	Events        *Events
 }
 
 func NewProduct(sku string, version int) *Product {
@@ -20,7 +20,7 @@ func NewProduct(sku string, version int) *Product {
 		Sku:           sku,
 		Batches:       make([]*Batch, 0),
 		VersionNumber: version,
-		Events:        make([]interface{}, 0),
+		Events:        &Events{items: make([]interface{}, 0)},
 	}
 }
 
@@ -34,7 +34,7 @@ func (p *Product) Allocate(line *OrderLine) {
 		b.Allocate(line)
 		p.VersionNumber += 1
 
-		p.Events = append(p.Events, &Allocated{
+		p.Events.Append(&Allocated{
 			OrderId:  line.OrderId,
 			Sku:      line.Sku,
 			Qty:      line.Qty,
@@ -43,7 +43,7 @@ func (p *Product) Allocate(line *OrderLine) {
 
 	}
 
-	p.Events = append(p.Events, &OutOfStock{line.Sku})
+	p.Events.Append(&OutOfStock{line.Sku})
 
 }
 
@@ -52,7 +52,7 @@ func (p *Product) ChangeBatchQuantity(ref string, qty int) {
 		b.purchasedQuantity = qty
 		for b.AvailableQuantity() < 0 {
 			line := b.DeallocateOne()
-			p.Events = append(p.Events, &Deallocate{line.OrderId, line.Sku, line.Qty})
+			p.Events.Append(&OutOfStock{line.Sku})
 		}
 	}
 }

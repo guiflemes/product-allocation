@@ -41,25 +41,44 @@ func NewMessageBus(uow *UnitOfWork) *MessageBus {
 }
 
 func (b *MessageBus) HandlerCommand(ctx context.Context, cmd interface{}) error {
+
 	go b.handlerCommand(ctx, cmd)
 
 	for {
 		select {
 		case err := <-b.errChan:
-			fmt.Println("receiving err")
 
 			if err != nil {
 				return err
 			}
 
+			fmt.Println("command executed successfully", err)
 			return nil
 
 		case event := <-b.eventQueue:
-			fmt.Println("receiving event")
 			b.HandlerEvent(event)
 		}
 
 	}
+
+}
+
+func (b *MessageBus) handlerCommand(ctx context.Context, cmd interface{}) {
+	b.m.RLock()
+	defer b.m.RUnlock()
+
+	cmdType := b.getType(cmd)
+	handler, ok := b.commandHandlers[cmdType]
+
+	if ok {
+		result := handler.Handle(ctx, cmd)
+		b.uow.CollectNewEvents()
+		b.errChan <- result
+		return
+	}
+
+	b.errChan <- fmt.Errorf("unable to find handler cmd %s", cmdType)
+
 }
 
 func (b *MessageBus) HandlerEvent(event interface{}) {
@@ -84,23 +103,6 @@ func (b *MessageBus) HandlerEvent(event interface{}) {
 	}
 
 	wg.Wait()
-
-}
-
-func (b *MessageBus) handlerCommand(ctx context.Context, cmd interface{}) {
-	b.m.RLock()
-	defer b.m.RUnlock()
-
-	cmdType := b.getType(cmd)
-	handler, ok := b.commandHandlers[cmdType]
-
-	if ok {
-		b.errChan <- handler.Handle(ctx, cmd)
-		b.uow.CollectNewEvents()
-		return
-	}
-
-	b.errChan <- fmt.Errorf("unable to find handler cmd %s", cmdType)
 
 }
 

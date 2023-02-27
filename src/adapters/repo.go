@@ -47,6 +47,7 @@ func (a *MemoryRepo) Get(cxt context.Context, sku string) (*domain.Product, erro
 	defer a.m.RUnlock()
 
 	p, ok := a.products[sku]
+
 	if ok {
 		a.seen.Add(p)
 	}
