@@ -35,6 +35,7 @@ func bootstrap(uow *service_layer.UnitOfWork) *service_layer.MessageBus {
 
 	bus.RegisterCommandHandler("Allocate", handlers.NewAllocateHandler(uow))
 	bus.RegisterCommandHandler("CreateBatch", handlers.NewAddBatchHandler(uow))
+	bus.RegisterCommandHandler("ChangeBatchQuantity", handlers.NewChanceBatchQuantity(uow))
 	bus.RegisterEventHandler("OutOfStock", &FakeOutOfStockEvent{})
 	bus.RegisterEventHandler("Allocated", &FakeAllocatedEvent{})
 	return bus
@@ -43,7 +44,8 @@ func bootstrap(uow *service_layer.UnitOfWork) *service_layer.MessageBus {
 var options string = `Choose some action
 1 - Create new Batch.
 2 - Allocate products.
-3 - Stop
+3 - Change Batch Qty.
+4 - Stop
 `
 
 func GoHorse() {
@@ -64,12 +66,22 @@ func GoHorse() {
 		case 2:
 			cmd = createAllocateCmd()
 		case 3:
+			cmd = createChangeBatchQuantityCmd()
+		case 4:
 			break
 		default:
 			continue
 		}
 
-		bus.HandlerCommand(context.Background(), cmd)
+		err := bus.HandlerCommand(context.Background(), cmd)
+
+		func() {
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			fmt.Println("command executed successfully")
+		}()
 
 	}
 
@@ -77,7 +89,6 @@ func GoHorse() {
 
 func createBatchCmd() *domain.CreateBatch {
 	fmt.Println("CreateBatchCmd")
-
 	batch := &domain.CreateBatch{}
 	parseInputs(batch, []string{"Eta"})
 	batch.Eta = time.Now()
@@ -89,6 +100,13 @@ func createAllocateCmd() *domain.Allocate {
 	allocate := &domain.Allocate{}
 	parseInputs(allocate, make([]string, 0))
 	return allocate
+}
+
+func createChangeBatchQuantityCmd() *domain.ChangeBatchQuantity {
+	fmt.Println("ChangeBatchQuantityCmd")
+	changeBatchQty := &domain.ChangeBatchQuantity{}
+	parseInputs(changeBatchQty, make([]string, 0))
+	return changeBatchQty
 }
 
 func parseInputs(s interface{}, skip []string) {

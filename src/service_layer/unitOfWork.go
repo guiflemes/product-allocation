@@ -24,8 +24,6 @@ func (u *UnitOfWork) Products() Repo {
 }
 
 func (u *UnitOfWork) CollectNewEvents() {
-	// TODO creates a generator and delete EventQueue dependence
-
 	products := u.products.Seen()
 
 	for p := range products.Iter() {

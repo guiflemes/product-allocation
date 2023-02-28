@@ -47,13 +47,7 @@ func (b *MessageBus) HandlerCommand(ctx context.Context, cmd interface{}) error 
 	for {
 		select {
 		case err := <-b.errChan:
-
-			if err != nil {
-				return err
-			}
-
-			fmt.Println("command executed successfully", err)
-			return nil
+			return err
 
 		case event := <-b.eventQueue:
 			b.HandlerEvent(event)

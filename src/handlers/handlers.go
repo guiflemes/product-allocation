@@ -78,3 +78,25 @@ func (h *AllocateHandler) Handle(ctx context.Context, c interface{}) error {
 	return nil
 
 }
+
+type ChanceBatchQuantity struct {
+	uow uow
+}
+
+func NewChanceBatchQuantity(uow uow) *ChanceBatchQuantity {
+	return &ChanceBatchQuantity{uow: uow}
+}
+
+func (b *ChanceBatchQuantity) Handle(ctx context.Context, c interface{}) error {
+
+	cmd := c.(*domain.ChangeBatchQuantity)
+	product, err := b.uow.Products().GetByBatchRef(ctx, cmd.Ref)
+	if err != nil {
+		return err
+	}
+
+	product.ChangeBatchQuantity(cmd.Ref, cmd.Qty)
+	b.uow.Commit()
+
+	return nil
+}

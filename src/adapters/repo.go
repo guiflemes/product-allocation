@@ -3,7 +3,6 @@ package adapters
 import (
 	"context"
 	"errors"
-	"math/rand"
 	"product-allocation/src/domain"
 	"product-allocation/src/utils/collections"
 	"sync"
@@ -15,6 +14,7 @@ type MemoryRepo struct {
 	keys          []string
 	sliceKeyIndex map[string]int
 	m             sync.RWMutex
+	batch_count   int
 }
 
 func NewMemoryRepo() *MemoryRepo {
@@ -57,20 +57,22 @@ func (a *MemoryRepo) Get(cxt context.Context, sku string) (*domain.Product, erro
 }
 
 func (a *MemoryRepo) GetByBatchRef(cxt context.Context, batchRef string) (*domain.Product, error) {
-	// TODO -> Refactor it to get by batchRef, it's random
-
+	a.m.RLock()
+	defer a.m.RUnlock()
 	if len(a.products) == 0 {
-		return nil, errors.New("There is no any product")
+		return nil, errors.New("There is no any product error")
 	}
 
-	a.m.RLock()
-	defer a.m.Unlock()
+	for _, p := range a.products {
+		for _, b := range p.Batches {
+			if b.Ref == batchRef {
+				a.seen.Add(p)
+				return p, nil
+			}
+		}
+	}
 
-	randomIndex := rand.Intn(len(a.keys))
-	key := a.keys[randomIndex]
-	p := a.products[key]
-	a.seen.Add(p)
-	return p, nil
+	return nil, errors.New("Product not found error")
 
 }
 
