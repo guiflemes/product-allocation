@@ -19,7 +19,6 @@ func (m *Events) Append(x interface{}) {
 func (m *Events) Read() []interface{} {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
 	return m.items
 }
 

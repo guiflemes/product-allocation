@@ -24,32 +24,34 @@ func NewProduct(sku string, version int) *Product {
 	}
 }
 
-func (p *Product) Allocate(line *OrderLine) {
+func (p *Product) Allocate(line *OrderLine) string {
 
 	sort.Slice(p.Batches, func(i, j int) bool {
-		return p.Batches[i].Eta.Nanosecond() > p.Batches[j].Eta.Nanosecond()
+		return p.Batches[i].AvailableQuantity() < p.Batches[j].AvailableQuantity()
 	})
 
 	for _, b := range p.Batches {
-		b.Allocate(line)
-		p.VersionNumber += 1
-
-		p.Events.Append(&Allocated{
-			OrderId:  line.OrderId,
-			Sku:      line.Sku,
-			Qty:      line.Qty,
-			BatchRef: b.Ref,
-		})
+		if b.CanAllocate(line) {
+			b.Allocate(line)
+			p.VersionNumber++
+			p.Events.Append(&Allocated{
+				OrderId:  line.OrderId,
+				Sku:      line.Sku,
+				Qty:      line.Qty,
+				BatchRef: b.Ref,
+			})
+			return b.Ref
+		}
 
 	}
-
 	p.Events.Append(&OutOfStock{line.Sku})
+	return ""
 
 }
 
 func (p *Product) ChangeBatchQuantity(ref string, qty int) {
 	for _, b := range p.Batches {
-		b.purchasedQuantity = qty
+		b.Qty = qty
 		for b.AvailableQuantity() < 0 {
 			line := b.DeallocateOne()
 			p.Events.Append(&OutOfStock{line.Sku})
@@ -68,12 +70,21 @@ type OrderLine struct {
 }
 
 type Batch struct {
-	Ref               string
-	Sku               string
-	Qty               int
-	Eta               time.Time
-	purchasedQuantity int
-	allocations       collections.Set[*OrderLine]
+	Ref         string
+	Sku         string
+	Qty         int
+	Eta         time.Time
+	allocations collections.Set[*OrderLine]
+}
+
+func NewBatch(ref string, sku string, qty int, eta time.Time) *Batch {
+	return &Batch{
+		Ref:         ref,
+		Sku:         sku,
+		Qty:         qty,
+		Eta:         eta,
+		allocations: *collections.NewSet[*OrderLine](),
+	}
 }
 
 func (b *Batch) Allocate(line *OrderLine) {
@@ -96,12 +107,16 @@ func (b *Batch) AllocateQuantity() int {
 	return math.Sum(slice)
 }
 
+func (b *Batch) getPurchasedQuantity() int {
+	return b.Qty
+}
+
 func (b *Batch) AvailableQuantity() int {
-	return b.purchasedQuantity - b.AllocateQuantity()
+	return b.getPurchasedQuantity() - b.AllocateQuantity()
 }
 
 func (b *Batch) CanAllocate(line *OrderLine) bool {
-	return b.Sku == line.Sku && b.AllocateQuantity() >= line.Qty
+	return b.Sku == line.Sku && b.AvailableQuantity() >= line.Qty
 }
 
 func (b *Batch) String() string {

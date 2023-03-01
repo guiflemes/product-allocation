@@ -34,7 +34,7 @@ func (h *AddBatchHandler) Handle(ctx context.Context, c interface{}) error {
 		product = domain.NewProduct(cmd.Sku, 1)
 	}
 
-	product.Batches = append(product.Batches, &domain.Batch{Ref: cmd.Ref, Sku: cmd.Sku, Qty: cmd.Qty, Eta: cmd.Eta})
+	product.Batches = append(product.Batches, domain.NewBatch(cmd.Ref, cmd.Sku, cmd.Qty, cmd.Eta))
 
 	if err := h.uow.Products().Add(ctx, product); err != nil {
 		h.uow.Rollback()
