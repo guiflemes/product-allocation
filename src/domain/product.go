@@ -27,7 +27,7 @@ func NewProduct(sku string, version int) *Product {
 func (p *Product) Allocate(line *OrderLine) string {
 
 	sort.Slice(p.Batches, func(i, j int) bool {
-		return p.Batches[i].AvailableQuantity() < p.Batches[j].AvailableQuantity()
+		return p.Batches[i].Eta.Nanosecond() > p.Batches[j].Eta.Nanosecond()
 	})
 
 	for _, b := range p.Batches {

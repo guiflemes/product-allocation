@@ -8,12 +8,49 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var (
+	tomorrow time.Time = time.Now().AddDate(0, 0, 1)
+)
+
+func TestReturnsAllocatedBatchRef(t *testing.T) {
+	assert := assert.New(t)
+
+	type testCase struct {
+		desc          string
+		firstAddBatch *Batch
+		nextBatchs    []*Batch
+		line          *OrderLine
+		product       *Product
+	}
+
+	for _, scenario := range []testCase{
+		{
+			desc:          "Allocation to Ref in-stock-batch-ref",
+			firstAddBatch: NewBatch("in-stock-batch-ref", "MARVIN-DOG", 100, time.Now()),
+			nextBatchs:    []*Batch{NewBatch("shipment-batch-ref", "MARVIN-DOG", 100, tomorrow)},
+			line:          &OrderLine{OrderId: "order1", Sku: "MARVIN-DOG", Qty: 10},
+			product:       NewProduct("MARVIN-DOG", 10),
+		},
+		{
+			desc:          "Allocation to Ref in-stock-marvin-ref",
+			firstAddBatch: NewBatch("in-stock-marvin-ref", "MARVIN-DOG", 100, time.Now()),
+			nextBatchs:    []*Batch{NewBatch("shipment-batch-ref_1", "MARVIN-DOG", 100, tomorrow), NewBatch("shipment-batch-ref_2", "MARVIN-DOG", 100, tomorrow.AddDate(0, 0, 1))},
+			line:          &OrderLine{OrderId: "order1", Sku: "MARVIN-DOG", Qty: 10},
+			product:       NewProduct("MARVIN-DOG", 10),
+		},
+	} {
+		t.Run(scenario.desc, func(t *testing.T) {
+			batchs := scenario.nextBatchs
+			batchs = append(batchs, scenario.firstAddBatch)
+			scenario.product.Batches = batchs
+			allocation := scenario.product.Allocate(scenario.line)
+			assert.Equal(allocation, scenario.firstAddBatch.Ref)
+		})
+	}
+}
+
 func TestOutputsAllocatedEvent(t *testing.T) {
 	assert := assert.New(t)
-	line := &OrderLine{OrderId: "order1", Sku: "MARVIN-DOG", Qty: 10}
-	product := NewProduct("MARVIN-DOG", 10)
-	product.Batches = []*Batch{NewBatch("batch1", "MARVIN-DOG", 100, time.Now())}
-	product.Allocate(line)
 
 	type testCase struct {
 		desc     string
