@@ -9,8 +9,28 @@ import (
 )
 
 var (
-	tomorrow time.Time = time.Now().AddDate(0, 0, 1)
+	today    time.Time = time.Now()
+	tomorrow time.Time = today.AddDate(0, 0, 1)
+	later    time.Time = tomorrow.AddDate(0, 0, 10)
 )
+
+func TestPrefersEarlierBatchs(t *testing.T) {
+	assert := assert.New(t)
+
+	earliest := NewBatch("speedy-batch", "MINIMALIST-SPOON", 100, today)
+	medium := NewBatch("normal-batch", "MINIMALIST-SPOON", 100, tomorrow)
+	latest := NewBatch("slow-batch", "MINIMALIST-SPOON", 100, later)
+	product := NewProduct("MINIMALIST-SPOON", 1)
+	product.Batches = []*Batch{earliest, medium, latest}
+	line := &OrderLine{"order_1", "MINIMALIST-SPOON", 10}
+
+	product.Allocate(line)
+
+	assert.Equal(earliest.AvailableQuantity(), 90)
+	assert.Equal(medium.AvailableQuantity(), 100)
+	assert.Equal(latest.AvailableQuantity(), 100)
+
+}
 
 func TestReturnsAllocatedBatchRef(t *testing.T) {
 	assert := assert.New(t)
