@@ -150,3 +150,88 @@ func TestIncrementsVersionNumber(t *testing.T) {
 		})
 	}
 }
+
+func TestAllocatingToABatchReducesTheAvailableQuantity(t *testing.T) {
+	assert := assert.New(t)
+	batch := NewBatch("batch1", "SMALL-TABLE", 20, today)
+	line := &OrderLine{"order1", "SMALL-TABLE", 2}
+	batch.Allocate(line)
+	assert.Equal(batch.AvailableQuantity(), 18)
+}
+
+func TestCanAllocate(t *testing.T) {
+	assert := assert.New(t)
+
+	type testCase struct {
+		desc     string
+		batchQty int
+		lineQty  int
+		expected bool
+	}
+
+	for _, s := range []testCase{
+		{
+			desc:     "Can allocate, available greater than required",
+			batchQty: 20,
+			lineQty:  2,
+			expected: true,
+		},
+		{
+			desc:     "Cannot allocate, available smaller than required",
+			batchQty: 2,
+			lineQty:  20,
+			expected: false,
+		},
+		{
+			desc:     "Cannot allocate, Available equal to required",
+			batchQty: 20,
+			lineQty:  20,
+			expected: true,
+		},
+	} {
+		t.Run(s.desc, func(t *testing.T) {
+			batch := NewBatch("batch1", "ELEGANT-LAMP", s.batchQty, today)
+			line := &OrderLine{"order1", "ELEGANT-LAMP", s.lineQty}
+			assert.Equal(batch.CanAllocate(line), s.expected)
+		})
+	}
+
+}
+
+func TestCannotAllocateIfSkuDoNotMatch(t *testing.T) {
+	assert := assert.New(t)
+
+	type testCase struct {
+		sku string
+	}
+
+	for _, s := range []testCase{
+		{
+			sku: "MARVIN",
+		},
+		{
+			sku: "DOG",
+		},
+		{
+			sku: "BEAGLE",
+		},
+	} {
+		t.Run(fmt.Sprintf("Cannot Allocate Sku %s", s.sku), func(t *testing.T) {
+			batch := NewBatch("batch1", "ELEGANT-LAMP", 10, today)
+			line := &OrderLine{"order1", s.sku, 2}
+			assert.False(batch.CanAllocate(line))
+		})
+	}
+
+}
+
+func TestAllocationIsIdempotent(t *testing.T) {
+	assert := assert.New(t)
+	batch := NewBatch("batch1", "ELEGANT-LAMP", 10, today)
+	line := &OrderLine{"order1", "ELEGANT-LAMP", 2}
+	batch.Allocate(line)
+	batch.Allocate(line)
+	batch.Allocate(line)
+
+	assert.Equal(batch.AvailableQuantity(), 8)
+}
